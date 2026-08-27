@@ -1318,6 +1318,36 @@ Zotero.Connector_Browser = new function() {
 	}
 
 	browser.action.onClicked.addListener(waitForInit(logListenerErrors(_browserAction)));
+
+	// This fork exposes the existing browser-action save flow to its CNKI-only page button.
+	browser.runtime.onMessage.addListener(function (message, sender) {
+		if (!message || message.type !== 'zotero-cnki-save') {
+			return;
+		}
+
+		return Zotero.initDeferred.promise.then(async function () {
+			const tab = sender && sender.tab;
+			let hostname;
+			try {
+				hostname = new URL(tab && tab.url).hostname;
+			}
+			catch (error) {
+				return { ok: false, error: '无法识别当前页面' };
+			}
+			if (hostname !== 'cnki.net' && !hostname.endsWith('.cnki.net')) {
+				return { ok: false, error: '只允许从 CNKI 页面保存' };
+			}
+
+			try {
+				await _browserAction(tab);
+				return { ok: true };
+			}
+			catch (error) {
+				Zotero.logError(error);
+				return { ok: false, error: error && error.message || String(error) };
+			}
+		});
+	});
 	
 	browser.tabs.onRemoved.addListener(waitForInit(logListenerErrors(_clearInfoForTab)));
 	

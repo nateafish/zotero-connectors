@@ -1,5 +1,5 @@
 {
-	"name": "Zotero Connector",
+	"name": "Zotero Connector (CNKI Button)",
 	"manifest_version": 2,
 	"version": "AUTOFILLED",
 	"description": "__MSG_extension_description__",
@@ -29,6 +29,11 @@
 			"matches": ["http://*/*", "https://*/*"],
 			"run_at": "document_start",
 			"js": [/*INJECT SCRIPTS*/]
+		},
+		{
+			"matches": ["http://*.cnki.net/*", "https://*.cnki.net/*"],
+			"run_at": "document_idle",
+			"js": ["cnkiSaveButton.js"]
 		},
 		{
 			"matches": ["https://docs.google.com/document/*"],
