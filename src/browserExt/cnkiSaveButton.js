@@ -9,8 +9,11 @@
 (function () {
 	const BUTTON_ID = 'zotero-cnki-save-button';
 	const MESSAGE_TYPE = 'zotero-cnki-save';
+	const pathname = window.location.pathname.toLowerCase();
+	const isArticleDetail = pathname.includes('/kcms2/article/abstract')
+		|| pathname.includes('/kcms/detail/detail.aspx');
 
-	if (document.getElementById(BUTTON_ID)) {
+	if (!isArticleDetail || document.getElementById(BUTTON_ID)) {
 		return;
 	}
 
@@ -98,7 +101,7 @@
 			if (!response || !response.ok) {
 				throw new Error(response && response.error || 'Connector 未响应');
 			}
-			setState('success', '已交给 Zotero');
+			setState('success', '已触发 Zotero');
 		}
 		catch (error) {
 			console.error('Zotero CNKI save failed', error);
