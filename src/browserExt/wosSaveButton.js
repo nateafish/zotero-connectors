@@ -1,49 +1,57 @@
 /*
  * This file is part of the Zotero Connector page-button fork.
- * It adds a save button to CNKI search result and article detail pages
- * and delegates saving to the Connector's existing browser-action flow.
+ * It adds a save button to Web of Science / Web of Knowledge search-result
+ * and record pages and delegates saving to the Connector's existing browser-action flow.
  */
 
 'use strict';
 
 (function () {
-	const BUTTON_ID = 'zotero-cnki-save-button';
+	const BUTTON_ID = 'zotero-wos-save-button';
 	const STYLE_ID = `${BUTTON_ID}-style`;
-	const MESSAGE_TYPE = 'zotero-cnki-save';
+	const MESSAGE_TYPE = 'zotero-wos-save';
 	let resetTimer;
 	let syncScheduled = false;
 
 	function isSupportedPage() {
 		const hostname = window.location.hostname.toLowerCase();
-		if (hostname !== 'cnki.net' && !hostname.endsWith('.cnki.net')) {
-			return false;
-		}
-		// Do not show on login or security verification pages
-		if (hostname.startsWith('login.') || window.location.pathname.startsWith('/verify/')) {
-			return false;
-		}
-		const href = window.location.href;
 		const pathname = window.location.pathname.toLowerCase();
-		const isSearch = /\/defaultresult\/|\/search\?|\/AdvSearch\?/i.test(href);
-		const isArticleDetail = pathname.includes('/kcms2/article/abstract')
-			|| pathname.includes('/kcms/detail/detail.aspx');
-		return isSearch || isArticleDetail;
+		const isNextgenHost = hostname === 'www.webofscience.com'
+			|| hostname === 'webofscience.clarivate.cn';
+		const isLegacyHost = hostname === 'webofknowledge.com'
+			|| hostname.endsWith('.webofknowledge.com');
+
+		if (isNextgenHost) {
+			return pathname.includes('/full-record/')
+				|| pathname.includes('/summary/')
+				|| pathname.includes('/smart-search')
+				|| pathname.includes('/basic-search')
+				|| pathname.includes('/advanced-search')
+				|| pathname.startsWith('/wos/');
+		}
+		if (isLegacyHost) {
+			return /(?:full_record|citedfullrecord|inboundservice|summary)\.do/i.test(pathname)
+				|| /search_mode=/i.test(window.location.search)
+				|| pathname.endsWith('.do')
+				|| pathname === '/' || pathname === '';
+		}
+		return false;
 	}
 
 	function setState(button, state, label) {
 		button.dataset.state = state;
 		button.disabled = state === 'saving';
-		button.querySelector('.zotero-cnki-save-button-label').textContent = label;
+		button.querySelector('.zotero-wos-save-button-label').textContent = label;
 	}
 
 	function createButton() {
 		const button = document.createElement('button');
 		button.id = BUTTON_ID;
 		button.type = 'button';
-		button.title = '使用 Zotero Connector 保存当前知网页面（详情页直接保存，检索页弹出条目选择）';
+		button.title = '使用 Zotero Connector 保存当前页面（详情页直接保存，检索页弹出条目选择）';
 		button.setAttribute('aria-label', '保存到 Zotero');
-		button.innerHTML = '<span class="zotero-cnki-save-button-icon">Z</span>'
-			+ '<span class="zotero-cnki-save-button-label">保存到 Zotero</span>';
+		button.innerHTML = '<span class="zotero-wos-save-button-icon">Z</span>'
+			+ '<span class="zotero-wos-save-button-label">保存到 Zotero</span>';
 
 		button.addEventListener('click', async function () {
 			clearTimeout(resetTimer);
@@ -56,7 +64,7 @@
 				setState(button, 'success', '已触发 Zotero');
 			}
 			catch (error) {
-				console.error('Zotero CNKI save failed', error);
+				console.error('Zotero Web of Science save failed', error);
 				setState(button, 'error', '保存失败');
 			}
 			resetTimer = setTimeout(() => {
@@ -116,7 +124,7 @@
 			#${BUTTON_ID}[data-state="error"] {
 				background: #555;
 			}
-			#${BUTTON_ID} .zotero-cnki-save-button-icon {
+			#${BUTTON_ID} .zotero-wos-save-button-icon {
 				display: inline-flex;
 				align-items: center;
 				justify-content: center;
@@ -128,7 +136,7 @@
 				color: #cc2936;
 				font: 700 16px/1 Georgia, serif;
 			}
-			#${BUTTON_ID} .zotero-cnki-save-button-label {
+			#${BUTTON_ID} .zotero-wos-save-button-label {
 				all: initial;
 				color: inherit;
 				font: inherit;

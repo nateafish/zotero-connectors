@@ -1,5 +1,5 @@
 {
-	"name": "Zotero Connector (CNKI Button)",
+	"name": "Zotero Connector (CNKI + WOS Buttons)",
 	"manifest_version": 2,
 	"version": "AUTOFILLED",
 	"description": "__MSG_extension_description__",
@@ -34,6 +34,16 @@
 			"matches": ["http://*.cnki.net/*", "https://*.cnki.net/*"],
 			"run_at": "document_idle",
 			"js": ["cnkiSaveButton.js"]
+		},
+		{
+			"matches": [
+				"https://www.webofscience.com/*",
+				"https://webofscience.clarivate.cn/*",
+				"http://*.webofknowledge.com/*",
+				"https://*.webofknowledge.com/*"
+			],
+			"run_at": "document_idle",
+			"js": ["wosSaveButton.js"]
 		},
 		{
 			"matches": ["https://docs.google.com/document/*"],

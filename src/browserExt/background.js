@@ -1319,23 +1319,47 @@ Zotero.Connector_Browser = new function() {
 
 	browser.action.onClicked.addListener(waitForInit(logListenerErrors(_browserAction)));
 
-	// This fork exposes the existing browser-action save flow to its CNKI-only page button.
+	// This fork exposes the existing browser-action save flow to trusted site-specific buttons.
 	browser.runtime.onMessage.addListener(function (message, sender) {
-		if (!message || message.type !== 'zotero-cnki-save') {
+		const supportedMessageTypes = new Set(['zotero-cnki-save', 'zotero-wos-save']);
+		if (!message || !supportedMessageTypes.has(message.type)) {
 			return;
 		}
 
 		return Zotero.initDeferred.promise.then(async function () {
 			const tab = sender && sender.tab;
-			let hostname;
+			let url;
 			try {
-				hostname = new URL(tab && tab.url).hostname;
+				url = new URL(tab && tab.url);
 			}
 			catch (error) {
 				return { ok: false, error: '无法识别当前页面' };
 			}
-			if (hostname !== 'cnki.net' && !hostname.endsWith('.cnki.net')) {
-				return { ok: false, error: '只允许从 CNKI 页面保存' };
+
+			const hostname = url.hostname.toLowerCase();
+			const href = url.href;
+			const pathname = url.pathname;
+			const isCNKIHost = hostname === 'cnki.net' || hostname.endsWith('.cnki.net');
+			const isCNKIPage = isCNKIHost
+				&& (/\/defaultresult\/|\/search\?|\/AdvSearch\?/i.test(href)
+					|| pathname.toLowerCase().includes('/kcms2/article/abstract')
+					|| pathname.toLowerCase().includes('/kcms/detail/detail.aspx'));
+			const isWOSNextgenPage = (hostname === 'www.webofscience.com'
+					|| hostname === 'webofscience.clarivate.cn')
+				&& (pathname.includes('/full-record/')
+					|| pathname.includes('/summary/')
+					|| /^\/wos\//i.test(pathname));
+			const isWOSLegacyPage = (hostname === 'webofknowledge.com'
+					|| hostname.endsWith('.webofknowledge.com'))
+				&& (/\/(?:full_record|CitedFullRecord|InboundService|summary)\.do$/i.test(pathname)
+					|| /search_mode=/i.test(url.search));
+
+			if (message.type === 'zotero-cnki-save' && !isCNKIPage) {
+				return { ok: false, error: '只允许从 CNKI 检索结果或文献详情页保存' };
+			}
+			if (message.type === 'zotero-wos-save'
+					&& !isWOSNextgenPage && !isWOSLegacyPage) {
+				return { ok: false, error: '只允许从 Web of Science 检索结果或完整记录页保存' };
 			}
 
 			try {
