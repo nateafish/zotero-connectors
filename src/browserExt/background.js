@@ -1139,7 +1139,7 @@ Zotero.Connector_Browser = new function() {
 		return true;
 	}
 
-	async function _browserAction(tab) {
+	async function _browserAction(tab, options={}) {
 		const shouldContinue = await Zotero.HostPermissions.checkChromiumActionPermissions(tab);
 		if (!shouldContinue) {
 			return;
@@ -1152,15 +1152,15 @@ Zotero.Connector_Browser = new function() {
 		if (_isBetaBuildBeyondExpiration) {
 			Zotero.Messaging.sendMessage('expiredBetaBuild')
 		}
-		else if (Zotero.Prefs.get('firstUse')) {
-			Zotero.Messaging.sendMessage("firstUse", null, tab)
+		else if (Zotero.Prefs.get('firstUse') && !options.skipFirstUse) {
+			return Zotero.Messaging.sendMessage("firstUse", null, tab)
 			.then(function () {
 				Zotero.Prefs.set('firstUse', false);
 				Zotero.Connector_Browser._updateExtensionUI(tab);
 			});
 		}
 		else if(tabInfo.translators && tabInfo.translators.length) {
-			Zotero.Connector_Browser.saveWithTranslator(tab, 0, {fallbackOnFailure: true});
+			return Zotero.Connector_Browser.saveWithTranslator(tab, 0, {fallbackOnFailure: true});
 		}
 		else {
 			if (tabInfo.isPDF) {
@@ -1177,6 +1177,34 @@ Zotero.Connector_Browser = new function() {
 				Zotero.Connector_Browser.saveAsWebpage(tab, 0, { snapshot: withSnapshot });
 			}
 		}
+	}
+
+	async function _preparePageButtonSave(tab) {
+		let tabInfo = Zotero.Connector_Browser.getTabInfo(tab.id);
+		if (tabInfo.url !== tab.url) {
+			_updateInfoForTab(tab.id, tab.url);
+			tabInfo = Zotero.Connector_Browser.getTabInfo(tab.id);
+		}
+
+		if (tabInfo.translators && tabInfo.translators.length) {
+			return;
+		}
+
+		await Zotero.Connector_Browser.injectTranslationScripts(tab);
+		await Zotero.Messaging.sendMessage('historyChanged', null, tab);
+
+		for (let i = 0; i < 150; i++) {
+			const currentTabInfo = Zotero.Connector_Browser.getTabInfo(tab.id);
+			if (currentTabInfo.url && currentTabInfo.url !== tab.url) {
+				throw new Error('页面已发生跳转，请重新点击保存');
+			}
+			if (currentTabInfo.translators && currentTabInfo.translators.length) {
+				return;
+			}
+			await Zotero.Promise.delay(100);
+		}
+
+		throw new Error('Zotero Connector 未检测到当前页面的文献翻译器');
 	}
 
 	/**
@@ -1363,7 +1391,8 @@ Zotero.Connector_Browser = new function() {
 			}
 
 			try {
-				await _browserAction(tab);
+				await _preparePageButtonSave(tab);
+				await _browserAction(tab, {skipFirstUse: true});
 				return { ok: true };
 			}
 			catch (error) {
